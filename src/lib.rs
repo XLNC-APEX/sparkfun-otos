@@ -4,7 +4,13 @@
 //!
 //! A driver for SparkFun Optical Tracking Odometry Sensor using I2C
 
-use embedded_hal::i2c::I2c;
+#[cfg(feature = "blocking")]
+extern crate embedded_hal as hal;
+#[cfg(not(feature = "blocking"))]
+extern crate embedded_hal_async as hal;
+
+use hal::i2c::I2c;
+use maybe_async::maybe_async;
 
 const ADDR: u8 = 0x17;
 
@@ -87,9 +93,14 @@ where
         Self { i2c }
     }
 
-    fn read_triple(&mut self, addr: u8) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+    #[maybe_async]
+    async fn read_triple(&mut self, addr: u8) -> Result<(i16, i16, i16), Error<I2C::Error>> {
         let mut rx_buf = [0u8; 6];
-        match self.i2c.write_read(addr, &[Register::POS], &mut rx_buf) {
+        match self
+            .i2c
+            .write_read(addr, &[Register::POS], &mut rx_buf)
+            .await
+        {
             Ok(()) => Ok((
                 i16::from_le_bytes([rx_buf[0], rx_buf[1]]),
                 i16::from_le_bytes([rx_buf[2], rx_buf[3]]),
@@ -99,42 +110,50 @@ where
         }
     }
 
-    pub fn reset_pos(&mut self) -> Result<(), I2C::Error> {
+    #[maybe_async]
+    pub async fn reset_pos(&mut self) -> Result<(), I2C::Error> {
         let tx = [Register::POS, 0, 0, 0, 0, 0, 0];
-        self.i2c.write(ADDR, &tx)?;
+        self.i2c.write(ADDR, &tx).await?;
         Ok(())
     }
 
-    pub fn get_pose(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
-        self.read_triple(Register::POS)
+    #[maybe_async]
+    pub async fn get_pose(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+        self.read_triple(Register::POS).await
     }
 
-    pub fn get_velocity(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
-        self.read_triple(Register::VEL)
+    #[maybe_async]
+    pub async fn get_velocity(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+        self.read_triple(Register::VEL).await
     }
 
-    pub fn get_accelleration(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
-        self.read_triple(Register::ACCEL)
+    #[maybe_async]
+    pub async fn get_accelleration(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+        self.read_triple(Register::ACCEL).await
     }
 
-    pub fn get_pose_sd(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
-        self.read_triple(Register::POS_SD)
+    #[maybe_async]
+    pub async fn get_pose_sd(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+        self.read_triple(Register::POS_SD).await
     }
 
-    pub fn get_velocity_sd(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
-        self.read_triple(Register::VEL_SD)
+    #[maybe_async]
+    pub async fn get_velocity_sd(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+        self.read_triple(Register::VEL_SD).await
     }
 
-    pub fn get_accelleration_sd(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
-        self.read_triple(Register::ACCEL_SD)
+    #[maybe_async]
+    pub async fn get_accelleration_sd(&mut self) -> Result<(i16, i16, i16), Error<I2C::Error>> {
+        self.read_triple(Register::ACCEL_SD).await
     }
 
-    pub fn set_offsets(&mut self, x: i16, y: i16, h: i16) -> Result<(), I2C::Error> {
+    #[maybe_async]
+    pub async fn set_offsets(&mut self, x: i16, y: i16, h: i16) -> Result<(), I2C::Error> {
         let lx = x.to_le_bytes();
         let ly = y.to_le_bytes();
         let lh = h.to_le_bytes();
         let tx = [Register::OFFSETS, lx[0], lx[1], ly[0], ly[1], lh[0], lh[1]];
-        self.i2c.write(ADDR, &tx)?;
+        self.i2c.write(ADDR, &tx).await?;
         Ok(())
     }
 }
