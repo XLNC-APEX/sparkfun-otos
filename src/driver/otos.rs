@@ -1,4 +1,5 @@
 use arrayref::array_ref;
+use bitfield_struct::bitfield;
 use embedded_hal_async::{
     digital::Wait,
     i2c::{I2c, Operation},
@@ -178,6 +179,16 @@ where
         self.write_reg(Register::RESET, 0x01).await
     }
 
+    pub async fn get_config(&mut self) -> Result<SignalProcessConfig> {
+        Ok(SignalProcessConfig::from_bits(
+            self.read_reg(Register::SIGNAL_PROCESS).await?,
+        ))
+    }
+
+    pub async fn set_config(&mut self, config: &SignalProcessConfig) -> Result<()> {
+        self.write_reg(Register::SIGNAL_PROCESS, config.into_bits()).await
+    }
+
     async fn read_regs<const N: usize>(&mut self, reg: u8) -> Result<[u8; N]> {
         let mut rx = [0u8; N];
         self.i2c
@@ -241,4 +252,22 @@ impl Pose {
 pub struct Version {
     pub hw: u8,
     pub fw: u8,
+}
+
+/// Signal process config register bit fields
+#[bitfield(u8)]
+pub struct SignalProcessConfig {
+    /// Whether to use the internal lookup table calibration for the
+    /// optical sensor
+    pub en_lut: bool,
+    /// Whether to feed the accelerometer data to the Kalman filters
+    pub en_acc: bool,
+    /// Whether to rotate the IMU and optical sensor data by the
+    /// heading angle
+    pub en_rot: bool,
+    /// Whether to use the correct sensor variance in the Kalman
+    /// filters, or use 0 varaince to effectively disable the filters
+    pub en_var: bool,
+    #[bits(4)]
+    __: u8,
 }
