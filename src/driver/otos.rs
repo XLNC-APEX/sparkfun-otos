@@ -1,3 +1,4 @@
+use arrayref::array_ref;
 use embedded_hal_async::{
     digital::Wait,
     i2c::{I2c, Operation},
@@ -5,7 +6,8 @@ use embedded_hal_async::{
 
 use crate::{
     DEFAULT_ADDR, K_I16_TO_METER, K_I16_TO_MPS, K_I16_TO_MPSS, K_I16_TO_RAD, K_I16_TO_RPS,
-    K_I16_TO_RPSS, PRODUCT_ID, Result, error::Error, registers::Register,
+    K_I16_TO_RPSS, K_METER_TO_I16, K_MPS_TO_I16, K_MPSS_TO_I16, K_RAD_TO_I16, K_RPS_TO_I16,
+    K_RPSS_TO_I16, PRODUCT_ID, Result, error::Error, registers::Register,
 };
 
 pub struct SparkfunOTOS<I2C, IrqPin> {
@@ -42,19 +44,116 @@ where
     }
 
     pub async fn get_pos(&mut self) -> Result<Pose> {
-        self.get_pose(K_I16_TO_METER, K_I16_TO_RAD).await
+        self.read_pose(Register::POS, K_I16_TO_METER, K_I16_TO_RAD)
+            .await
     }
     pub async fn get_vel(&mut self) -> Result<Pose> {
-        self.get_pose(K_I16_TO_MPS, K_I16_TO_RPS).await
+        self.read_pose(Register::VEL, K_I16_TO_MPS, K_I16_TO_RPS)
+            .await
     }
     pub async fn get_acc(&mut self) -> Result<Pose> {
-        self.get_pose(K_I16_TO_MPSS, K_I16_TO_RPSS).await
+        self.read_pose(Register::ACCEL, K_I16_TO_MPSS, K_I16_TO_RPSS)
+            .await
+    }
+    pub async fn get_pos_vel_acc(&mut self) -> Result<[Pose; 3]> {
+        self.read_poses(Register::POS).await
+    }
+    // SD versions
+    pub async fn get_pos_sd(&mut self) -> Result<Pose> {
+        self.read_pose(Register::POS_SD, K_I16_TO_METER, K_I16_TO_RAD)
+            .await
+    }
+    pub async fn get_vel_sd(&mut self) -> Result<Pose> {
+        self.read_pose(Register::VEL_SD, K_I16_TO_MPS, K_I16_TO_RPS)
+            .await
+    }
+    pub async fn get_acc_sd(&mut self) -> Result<Pose> {
+        self.read_pose(Register::ACCEL_SD, K_I16_TO_MPSS, K_I16_TO_RPSS)
+            .await
+    }
+    pub async fn get_pos_vel_acc_sd(&mut self) -> Result<[Pose; 3]> {
+        self.read_poses(Register::POS_SD).await
     }
 
-    async fn get_pose(&mut self, k_xy: f32, k_h: f32) -> Result<Pose> {
+    async fn read_pose(&mut self, reg: u8, k_xy: f32, k_h: f32) -> Result<Pose> {
         self.wait_for_data().await?;
-        let rx = self.read_regs::<6>(Register::POS).await?;
+        let rx = self.read_regs::<6>(reg).await?;
         Ok(Pose::parse(&rx, k_xy, k_h))
+    }
+
+    async fn read_poses(&mut self, reg: u8) -> Result<[Pose; 3]> {
+        self.wait_for_data().await?;
+        let rx = self.read_regs::<18>(reg).await?;
+        Ok([
+            Pose::parse(array_ref![rx, 0, 6], K_I16_TO_METER, K_I16_TO_RAD),
+            Pose::parse(array_ref![rx, 6, 6], K_I16_TO_METER, K_I16_TO_RAD),
+            Pose::parse(array_ref![rx, 12, 6], K_I16_TO_METER, K_I16_TO_RAD),
+        ])
+    }
+
+    pub async fn set_pos(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
+            .await
+    }
+
+    pub async fn set_vel(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::VEL, K_MPS_TO_I16, K_RPS_TO_I16)
+            .await
+    }
+
+    pub async fn set_acc(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::ACCEL, K_MPSS_TO_I16, K_RPSS_TO_I16)
+            .await
+    }
+
+    pub async fn set_pos_vel_acc(&mut self, poses: &[Pose; 3]) -> Result<()> {
+        self.write_poses(poses, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
+            .await
+    }
+
+    pub async fn set_pos_sd(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::POS_SD, K_METER_TO_I16, K_RAD_TO_I16)
+            .await
+    }
+
+    pub async fn set_vel_sd(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::VEL_SD, K_MPS_TO_I16, K_RPS_TO_I16)
+            .await
+    }
+
+    pub async fn set_acc_sd(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::ACCEL_SD, K_MPSS_TO_I16, K_RPSS_TO_I16)
+            .await
+    }
+
+    pub async fn set_pos_vel_acc_sd(&mut self, poses: &[Pose; 3]) -> Result<()> {
+        self.write_poses(poses, Register::POS_SD, K_METER_TO_I16, K_RAD_TO_I16)
+            .await
+    }
+
+    async fn write_pose(&mut self, pose: &Pose, reg: u8, k_xy: f32, k_h: f32) -> Result<()> {
+        self.write_regs(reg, &pose.encode(k_xy, k_h)).await
+    }
+
+    async fn write_poses(&mut self, poses: &[Pose; 3], reg: u8, k_xy: f32, k_h: f32) -> Result<()> {
+        let pos = poses[0].encode(k_xy, k_h);
+        let vel = poses[1].encode(k_xy, k_h);
+        let acc = poses[2].encode(k_xy, k_h);
+        let tx = [
+            pos[0], pos[1], pos[2], pos[3], pos[4], pos[5], vel[0], vel[1], vel[2], vel[3], vel[4],
+            vel[5], acc[0], acc[1], acc[2], acc[3], acc[4], acc[5],
+        ];
+        self.write_regs(reg, &tx).await
+    }
+
+    pub async fn get_offsets(&mut self) -> Result<Pose> {
+        self.read_pose(Register::OFFSETS, K_I16_TO_METER, K_I16_TO_RAD)
+            .await
+    }
+
+    pub async fn set_offset(&mut self, pose: &Pose) -> Result<()> {
+        self.write_pose(pose, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
+            .await
     }
 
     async fn check_product_id(&mut self) -> Result<()> {
@@ -128,6 +227,12 @@ impl Pose {
         let y = i16::from_le_bytes([rx[2], rx[3]]) as f32 * k_xy;
         let h = i16::from_le_bytes([rx[4], rx[5]]) as f32 * k_h;
         Self { x, y, h }
+    }
+    fn encode(&self, k_xy: f32, k_h: f32) -> [u8; 6] {
+        let x = ((self.x * k_xy) as i16).to_le_bytes();
+        let y = ((self.y * k_xy) as i16).to_le_bytes();
+        let h = ((self.h * k_h) as i16).to_le_bytes();
+        [x[0], x[1], y[0], y[1], h[0], h[1]]
     }
 }
 
