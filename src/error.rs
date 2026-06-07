@@ -1,4 +1,3 @@
-
 /// Possible errors from Sparkfun OTOS
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
@@ -6,6 +5,7 @@ pub enum Error {
     I2cError,
     PinError,
     IncorrectProductID,
+    CalibrationError,
 }
 
 impl core::fmt::Display for Error {

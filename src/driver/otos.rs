@@ -1,6 +1,12 @@
-use embedded_hal_async::{digital::Wait, i2c::I2c};
+use embedded_hal_async::{
+    digital::Wait,
+    i2c::{I2c, Operation},
+};
 
-use crate::{DEFAULT_ADDR, PRODUCT_ID, Result, error::Error, registers::Register};
+use crate::{
+    DEFAULT_ADDR, K_I16_TO_METER, K_I16_TO_MPS, K_I16_TO_MPSS, K_I16_TO_RAD, K_I16_TO_RPS,
+    K_I16_TO_RPSS, PRODUCT_ID, Result, error::Error, registers::Register,
+};
 
 pub struct SparkfunOTOS<I2C, IrqPin> {
     i2c: I2C,
@@ -35,12 +41,41 @@ where
         })
     }
 
+    pub async fn get_pos(&mut self) -> Result<Pose> {
+        self.get_pose(K_I16_TO_METER, K_I16_TO_RAD).await
+    }
+    pub async fn get_vel(&mut self) -> Result<Pose> {
+        self.get_pose(K_I16_TO_MPS, K_I16_TO_RPS).await
+    }
+    pub async fn get_acc(&mut self) -> Result<Pose> {
+        self.get_pose(K_I16_TO_MPSS, K_I16_TO_RPSS).await
+    }
+
+    async fn get_pose(&mut self, k_xy: f32, k_h: f32) -> Result<Pose> {
+        self.wait_for_data().await?;
+        let rx = self.read_regs::<6>(Register::POS).await?;
+        Ok(Pose::parse(&rx, k_xy, k_h))
+    }
+
     async fn check_product_id(&mut self) -> Result<()> {
         if self.read_reg(Register::PRODUCT_ID).await? == PRODUCT_ID {
             Ok(())
         } else {
             Err(Error::IncorrectProductID)
         }
+    }
+
+    pub async fn calibrate_imu(&mut self, n_samples: u8) -> Result<()> {
+        self.write_reg(Register::IMU_CALIB, n_samples).await?;
+        // TODO: test needed: It might not do irq when calibrating, might need to poll.
+        self.wait_for_data().await?;
+        (self.read_reg(Register::IMU_CALIB).await? == 0)
+            .then_some(())
+            .ok_or(Error::CalibrationError)
+    }
+
+    pub async fn reset_tracking(&mut self) -> Result<()> {
+        self.write_reg(Register::RESET, 0x01).await
     }
 
     async fn read_regs<const N: usize>(&mut self, reg: u8) -> Result<[u8; N]> {
@@ -61,17 +96,38 @@ where
         Ok(rx[0])
     }
 
-    // pub async fn get(&mut self) -> Result<()> {
-    //     self.wait_for_data().await?;
-    //     self.read().await
-    // }
+    async fn write_regs(&mut self, reg: u8, tx: &[u8]) -> Result<()> {
+        self.i2c
+            .transaction(
+                DEFAULT_ADDR,
+                &mut [Operation::Write(&[reg]), Operation::Write(tx)],
+            )
+            .await
+            .map_err(|_| Error::I2cError)
+    }
+
+    async fn write_reg(&mut self, reg: u8, value: u8) -> Result<()> {
+        self.i2c
+            .write(DEFAULT_ADDR, &[reg, value])
+            .await
+            .map_err(|_| Error::I2cError)
+    }
 }
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Reading {
+pub struct Pose {
     pub x: f32,
     pub y: f32,
     pub h: f32,
+}
+
+impl Pose {
+    fn parse(rx: &[u8; 6], k_xy: f32, k_h: f32) -> Self {
+        let x = i16::from_le_bytes([rx[0], rx[1]]) as f32 * k_xy;
+        let y = i16::from_le_bytes([rx[2], rx[3]]) as f32 * k_xy;
+        let h = i16::from_le_bytes([rx[4], rx[5]]) as f32 * k_h;
+        Self { x, y, h }
+    }
 }
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
