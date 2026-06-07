@@ -63,3 +63,6 @@ const K_I16_TO_RPS: f32 = 1.0 / K_RPS_TO_I16;
 // resolution of about 0.096 rps^2 (5.5 dps^2)
 const K_RPSS_TO_I16: f32 = 32768.0 / (PI * 1000.0);
 const K_I16_TO_RPSS: f32 = 1.0 / K_RPSS_TO_I16;
+
+const MIN_SCALAR: f32 = 0.872;
+const MAX_SCALAR: f32 = 1.127;

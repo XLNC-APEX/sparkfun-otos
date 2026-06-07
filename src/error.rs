@@ -6,6 +6,7 @@ pub enum Error {
     PinError,
     IncorrectProductID,
     CalibrationError,
+    ScalarOutOfBounds,
 }
 
 impl core::fmt::Display for Error {

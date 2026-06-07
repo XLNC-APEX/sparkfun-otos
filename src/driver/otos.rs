@@ -8,7 +8,7 @@ use embedded_hal_async::{
 use crate::{
     DEFAULT_ADDR, K_I16_TO_METER, K_I16_TO_MPS, K_I16_TO_MPSS, K_I16_TO_RAD, K_I16_TO_RPS,
     K_I16_TO_RPSS, K_METER_TO_I16, K_MPS_TO_I16, K_MPSS_TO_I16, K_RAD_TO_I16, K_RPS_TO_I16,
-    K_RPSS_TO_I16, PRODUCT_ID, Result, error::Error, registers::Register,
+    K_RPSS_TO_I16, MAX_SCALAR, MIN_SCALAR, PRODUCT_ID, Result, error::Error, registers::Register,
 };
 
 pub struct SparkfunOTOS<I2C, IrqPin> {
@@ -186,7 +186,39 @@ where
     }
 
     pub async fn set_config(&mut self, config: &SignalProcessConfig) -> Result<()> {
-        self.write_reg(Register::SIGNAL_PROCESS, config.into_bits()).await
+        self.write_reg(Register::SIGNAL_PROCESS, config.into_bits())
+            .await
+    }
+
+    pub async fn get_linear_scalar(&mut self) -> Result<f32> {
+        self.read_scalar(Register::SCALAR_LINEAR).await
+    }
+
+    pub async fn set_linear_scalar(&mut self, scalar: f32) -> Result<()> {
+        self.write_scalar(Register::SCALAR_LINEAR, scalar).await
+    }
+
+    pub async fn get_angular_scalar(&mut self) -> Result<f32> {
+        self.read_scalar(Register::SCALAR_ANGULAR).await
+    }
+
+    pub async fn set_angular_scalar(&mut self, scalar: f32) -> Result<()> {
+        self.write_scalar(Register::SCALAR_ANGULAR, scalar).await
+    }
+
+    async fn read_scalar(&mut self, reg: u8) -> Result<f32> {
+        Ok((self.read_reg(reg).await? as i8) as f32 * 0.001 + 1.0)
+    }
+
+    async fn write_scalar(&mut self, reg: u8, scalar: f32) -> Result<()> {
+        // bounds checking scalar
+        if (MIN_SCALAR..=MAX_SCALAR).contains(&scalar) {
+            // Convert to integer, multiples of 0.1% (+0.5 to round instead of truncate)
+            self.write_reg(reg, (((scalar - 1.0) * 1000.0 + 0.5) as i8) as u8)
+                .await
+        } else {
+            Err(Error::ScalarOutOfBounds)
+        }
     }
 
     async fn read_regs<const N: usize>(&mut self, reg: u8) -> Result<[u8; N]> {
