@@ -67,11 +67,12 @@ where
 
     pub async fn calibrate_imu(&mut self, n_samples: u8) -> Result<()> {
         self.write_reg(Register::IMU_CALIB, n_samples).await?;
-        // TODO: test needed: It might not do irq when calibrating, might need to poll.
-        self.wait_for_data().await?;
-        (self.read_reg(Register::IMU_CALIB).await? == 0)
-            .then_some(())
-            .ok_or(Error::CalibrationError)
+        loop {
+            self.wait_for_data().await?;
+            if self.read_reg(Register::IMU_CALIB).await? == 0 {
+                break Ok(());
+            }
+        }
     }
 
     pub async fn reset_tracking(&mut self) -> Result<()> {
