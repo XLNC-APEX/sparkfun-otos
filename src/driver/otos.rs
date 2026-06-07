@@ -287,7 +287,8 @@ pub struct Version {
 }
 
 /// Signal process config register bit fields
-#[bitfield(u8)]
+#[cfg_attr(feature = "defmt", bitfield(u8, defmt = true))]
+#[cfg_attr(not(feature = "defmt"), bitfield(u8))]
 pub struct SignalProcessConfig {
     /// Whether to use the internal lookup table calibration for the
     /// optical sensor
