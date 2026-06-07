@@ -287,8 +287,8 @@ pub struct Version {
 }
 
 /// Signal process config register bit fields
-#[cfg_attr(feature = "defmt", bitfield(u8, defmt = true))]
-#[cfg_attr(not(feature = "defmt"), bitfield(u8))]
+#[cfg_attr(feature = "defmt", bitfield(u8, defmt = true, default = false))]
+#[cfg_attr(not(feature = "defmt"), bitfield(u8, default = false))]
 pub struct SignalProcessConfig {
     /// Whether to use the internal lookup table calibration for the
     /// optical sensor
@@ -303,4 +303,10 @@ pub struct SignalProcessConfig {
     pub en_var: bool,
     #[bits(4)]
     __: u8,
+}
+
+impl Default for SignalProcessConfig {
+    fn default() -> Self {
+        Self(0x0F)
+    }
 }
