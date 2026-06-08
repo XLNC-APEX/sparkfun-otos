@@ -36,11 +36,11 @@ where
             .map_err(|_| Error::PinError)
     }
 
-    pub async fn get_version(&mut self) -> Result<Version> {
+    pub async fn get_version(&mut self) -> Result<Versions> {
         let rx = self.read_regs::<2>(Register::HW_VERSION).await?;
-        Ok(Version {
-            hw: rx[0],
-            fw: rx[1],
+        Ok(Versions {
+            hw: Version::from_bits(rx[0]),
+            fw: Version::from_bits(rx[1]),
         })
     }
 
@@ -281,9 +281,9 @@ impl Pose {
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Version {
-    pub hw: u8,
-    pub fw: u8,
+pub struct Versions {
+    pub hw: Version,
+    pub fw: Version,
 }
 
 /// Signal process config register bit fields
@@ -308,5 +308,20 @@ pub struct SignalProcessConfig {
 impl Default for SignalProcessConfig {
     fn default() -> Self {
         Self(0x0F)
+    }
+}
+
+#[bitfield(u8)]
+#[derive(PartialEq)]
+pub struct Version {
+    #[bits(4)]
+    pub minor: u8,
+    #[bits(4)]
+    pub major: u8,
+}
+#[cfg(feature = "defmt")]
+impl defmt::Format for Version {
+    fn format(&self, fmt: defmt::Formatter) {
+        defmt::write!(fmt, "{}.{}", self.major(), self.minor(),)
     }
 }
