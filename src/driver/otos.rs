@@ -304,6 +304,13 @@ impl From<Pose> for Point2<f32> {
 }
 
 #[cfg(feature = "nalgebra")]
+impl From<Pose> for Vector2<f32> {
+    fn from(pose: Pose) -> Self {
+        Vector2::new(pose.x, pose.y)
+    }
+}
+
+#[cfg(feature = "nalgebra")]
 impl From<Pose> for Isometry2<f32> {
     fn from(pose: Pose) -> Self {
         Isometry2::new(Vector2::new(pose.x, pose.y), pose.h)
