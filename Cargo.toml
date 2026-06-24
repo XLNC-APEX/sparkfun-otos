@@ -7,8 +7,12 @@ license = "LGPL-3.0-only AND MIT"
 [dependencies]
 arrayref = "0.3.9"
 bitfield-struct = "0.13.0"
-defmt = {version = "1.1.0", optional = true}
+defmt = { version = "1.1.0", optional = true }
 embedded-hal-async = "1.0.0"
+nalgebra = { version = "0.35.0", optional = true, default-features = false, features = [
+    "libm",
+] }
 
 [features]
 defmt = ["dep:defmt"]
+nalgebra = ["dep:nalgebra"]

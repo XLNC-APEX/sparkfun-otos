@@ -4,6 +4,8 @@ use embedded_hal_async::{
     digital::Wait,
     i2c::{I2c, Operation},
 };
+#[cfg(feature = "nalgebra")]
+use nalgebra::{Isometry2, Point2, Vector2};
 
 use crate::{
     DEFAULT_ADDR, K_I16_TO_METER, K_I16_TO_MPS, K_I16_TO_MPSS, K_I16_TO_RAD, K_I16_TO_RPS,
@@ -291,6 +293,20 @@ impl Pose {
         let y = ((self.y * k_xy) as i16).to_le_bytes();
         let h = ((self.h * k_h) as i16).to_le_bytes();
         [x[0], x[1], y[0], y[1], h[0], h[1]]
+    }
+}
+
+#[cfg(feature = "nalgebra")]
+impl From<Pose> for Point2<f32> {
+    fn from(pose: Pose) -> Self {
+        Point2::new(pose.x, pose.y)
+    }
+}
+
+#[cfg(feature = "nalgebra")]
+impl From<Pose> for Isometry2<f32> {
+    fn from(pose: Pose) -> Self {
+        Isometry2::new(Vector2::new(pose.x, pose.y), pose.h)
     }
 }
 
