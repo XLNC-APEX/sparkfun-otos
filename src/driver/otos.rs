@@ -56,6 +56,9 @@ where
         self.read_pose(Register::ACCEL, K_I16_TO_MPSS, K_I16_TO_RPSS)
             .await
     }
+    pub async fn get_pos_vel(&mut self) -> Result<[Pose; 2]> {
+        self.read_2_poses(Register::POS).await
+    }
     pub async fn get_pos_vel_acc(&mut self) -> Result<[Pose; 3]> {
         self.read_poses(Register::POS).await
     }
@@ -72,6 +75,9 @@ where
         self.read_pose(Register::ACCEL_SD, K_I16_TO_MPSS, K_I16_TO_RPSS)
             .await
     }
+    pub async fn get_pos_vel_sd(&mut self) -> Result<[Pose; 2]> {
+        self.read_2_poses(Register::POS_SD).await
+    }
     pub async fn get_pos_vel_acc_sd(&mut self) -> Result<[Pose; 3]> {
         self.read_poses(Register::POS_SD).await
     }
@@ -80,6 +86,15 @@ where
         self.wait_for_data().await?;
         let rx = self.read_regs::<6>(reg).await?;
         Ok(Pose::parse(&rx, k_xy, k_h))
+    }
+
+    async fn read_2_poses(&mut self, reg: u8) -> Result<[Pose; 2]> {
+        self.wait_for_data().await?;
+        let rx = self.read_regs::<12>(reg).await?;
+        Ok([
+            Pose::parse(array_ref![rx, 0, 6], K_I16_TO_METER, K_I16_TO_RAD),
+            Pose::parse(array_ref![rx, 6, 6], K_I16_TO_METER, K_I16_TO_RAD),
+        ])
     }
 
     async fn read_poses(&mut self, reg: u8) -> Result<[Pose; 3]> {
