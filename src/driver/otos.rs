@@ -13,24 +13,30 @@ use crate::{
     K_RPSS_TO_I16, MAX_SCALAR, MIN_SCALAR, PRODUCT_ID, Result, error::Error, registers::Register,
 };
 
-pub struct SparkfunOTOS<I2C, IrqPin> {
+/// Main driver struct
+pub struct SparkFunOTOS<I2C, IrqPin> {
     i2c: I2C,
+    /// IO9 Input async pin(should not be pulled)
     irq_pin: IrqPin,
 }
 
-impl<I2C, IrqPin> SparkfunOTOS<I2C, IrqPin>
+impl<I2C, IrqPin> SparkFunOTOS<I2C, IrqPin>
 where
     I2C: I2c,
     IrqPin: Wait,
 {
+    /// params: i2c bus, IO9 Input async pin(should not be pulled)
+    ///
     pub fn new(i2c: I2C, irq_pin: IrqPin) -> Self {
         Self { i2c, irq_pin }
     }
 
+    /// Checks product id
     pub async fn init(&mut self) -> Result<()> {
         self.check_product_id().await
     }
 
+    /// Waits for data ready interrupt on IO9 pin, active low
     async fn wait_for_data(&mut self) -> Result<()> {
         self.irq_pin
             .wait_for_low()
@@ -38,6 +44,7 @@ where
             .map_err(|_| Error::PinError)
     }
 
+    /// Get hardware and firmware versions
     pub async fn get_version(&mut self) -> Result<Versions> {
         let rx = self.read_regs::<2>(Register::HW_VERSION).await?;
         Ok(Versions {
@@ -45,41 +52,50 @@ where
             fw: Version::from_bits(rx[1]),
         })
     }
-
+    /// Get position
     pub async fn get_pos(&mut self) -> Result<Pose> {
         self.read_pose(Register::POS, K_I16_TO_METER, K_I16_TO_RAD)
             .await
     }
+    /// Get velocity
     pub async fn get_vel(&mut self) -> Result<Pose> {
         self.read_pose(Register::VEL, K_I16_TO_MPS, K_I16_TO_RPS)
             .await
     }
+    /// Get acceleration
     pub async fn get_acc(&mut self) -> Result<Pose> {
         self.read_pose(Register::ACCEL, K_I16_TO_MPSS, K_I16_TO_RPSS)
             .await
     }
+    /// Get position, velocity at once.
     pub async fn get_pos_vel(&mut self) -> Result<[Pose; 2]> {
         self.read_2_poses(Register::POS).await
     }
+    /// Get position, velocity, acceleration at once.
     pub async fn get_pos_vel_acc(&mut self) -> Result<[Pose; 3]> {
         self.read_poses(Register::POS).await
     }
     // SD versions
+    /// Get position. Standard deviation version.
     pub async fn get_pos_sd(&mut self) -> Result<Pose> {
         self.read_pose(Register::POS_SD, K_I16_TO_METER, K_I16_TO_RAD)
             .await
     }
+    /// Get velocity. Standard deviation version.
     pub async fn get_vel_sd(&mut self) -> Result<Pose> {
         self.read_pose(Register::VEL_SD, K_I16_TO_MPS, K_I16_TO_RPS)
             .await
     }
+    /// Get acceleration. Standard deviation version.
     pub async fn get_acc_sd(&mut self) -> Result<Pose> {
         self.read_pose(Register::ACCEL_SD, K_I16_TO_MPSS, K_I16_TO_RPSS)
             .await
     }
+    /// Get position, velocity at once. Standard deviation version.
     pub async fn get_pos_vel_sd(&mut self) -> Result<[Pose; 2]> {
         self.read_2_poses(Register::POS_SD).await
     }
+    /// Get position, velocity, acceleration at once. Standard deviation version.
     pub async fn get_pos_vel_acc_sd(&mut self) -> Result<[Pose; 3]> {
         self.read_poses(Register::POS_SD).await
     }
@@ -108,42 +124,42 @@ where
             Pose::parse(array_ref![rx, 12, 6], K_I16_TO_METER, K_I16_TO_RAD),
         ])
     }
-
+    /// Set position
     pub async fn set_pos(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
-
+    /// Set velocity
     pub async fn set_vel(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::VEL, K_MPS_TO_I16, K_RPS_TO_I16)
             .await
     }
-
+    /// Set acceleration
     pub async fn set_acc(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::ACCEL, K_MPSS_TO_I16, K_RPSS_TO_I16)
             .await
     }
-
+    /// Set position, velocity, acceleration at once.
     pub async fn set_pos_vel_acc(&mut self, poses: &[Pose; 3]) -> Result<()> {
         self.write_poses(poses, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
-
+    /// Set position. Standard deviation version.
     pub async fn set_pos_sd(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::POS_SD, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
-
+    /// Set velocity. Standard deviation version.
     pub async fn set_vel_sd(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::VEL_SD, K_MPS_TO_I16, K_RPS_TO_I16)
             .await
     }
-
+    /// Set acceleration. Standard deviation version.
     pub async fn set_acc_sd(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::ACCEL_SD, K_MPSS_TO_I16, K_RPSS_TO_I16)
             .await
     }
-
+    /// Set position, velocity, acceleration at once. Standard deviation version.
     pub async fn set_pos_vel_acc_sd(&mut self, poses: &[Pose; 3]) -> Result<()> {
         self.write_poses(poses, Register::POS_SD, K_METER_TO_I16, K_RAD_TO_I16)
             .await
@@ -163,17 +179,17 @@ where
         ];
         self.write_regs(reg, &tx).await
     }
-
+    /// Get OTOS offset. Offset of OTOS relative to robot center(Any point can be as center)
     pub async fn get_offsets(&mut self) -> Result<Pose> {
         self.read_pose(Register::OFFSETS, K_I16_TO_METER, K_I16_TO_RAD)
             .await
     }
-
+    /// Set OTOS offset. Offset of OTOS relative to robot center(Any point can be as center)
     pub async fn set_offset(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
-
+    /// Checks if product id equals [PRODUCT_ID]
     async fn check_product_id(&mut self) -> Result<()> {
         if self.read_reg(Register::PRODUCT_ID).await? == PRODUCT_ID {
             Ok(())
@@ -182,6 +198,10 @@ where
         }
     }
 
+    /// Calibrates IMU, resets the velocity, acceleration.
+    /// OTOS should be completely still during calibration.
+    /// n_samples - Number of samples taken for calibration, max = 255.
+    /// 1 sample takes 2.4ms approximately.
     pub async fn calibrate_imu(&mut self, n_samples: u8) -> Result<()> {
         self.write_reg(Register::IMU_CALIB, n_samples).await?;
         loop {
@@ -192,33 +212,44 @@ where
         }
     }
 
+    /// Resets position to origin(0,0).
     pub async fn reset_tracking(&mut self) -> Result<()> {
         self.write_reg(Register::RESET, 0x01).await
     }
 
+    /// Gets [SignalProcessConfig] from OTOS.
     pub async fn get_config(&mut self) -> Result<SignalProcessConfig> {
         Ok(SignalProcessConfig::from_bits(
             self.read_reg(Register::SIGNAL_PROCESS).await?,
         ))
     }
 
+    /// Sets [SignalProcessConfig] from OTOS.
     pub async fn set_config(&mut self, config: &SignalProcessConfig) -> Result<()> {
         self.write_reg(Register::SIGNAL_PROCESS, config.into_bits())
             .await
     }
 
+    /// Gets linear scalar, coefficient of position. Used by OTOS.
+    /// Scalar is between 0.872 and 1.127
     pub async fn get_linear_scalar(&mut self) -> Result<f32> {
         self.read_scalar(Register::SCALAR_LINEAR).await
     }
 
+    /// Sets linear scalar, coefficient of position. Used by OTOS.
+    /// Scalar must be between 0.872 and 1.127
     pub async fn set_linear_scalar(&mut self, scalar: f32) -> Result<()> {
         self.write_scalar(Register::SCALAR_LINEAR, scalar).await
     }
 
+    /// Gets angular scalar, coefficient of heading. Used by OTOS.
+    /// Scalar is between 0.872 and 1.127
     pub async fn get_angular_scalar(&mut self) -> Result<f32> {
         self.read_scalar(Register::SCALAR_ANGULAR).await
     }
 
+    /// Gets angular scalar, coefficient of heading. Used by OTOS.
+    /// Scalar must be between 0.872 and 1.127
     pub async fn set_angular_scalar(&mut self, scalar: f32) -> Result<()> {
         self.write_scalar(Register::SCALAR_ANGULAR, scalar).await
     }
@@ -273,11 +304,15 @@ where
             .map_err(|_| Error::I2cError)
     }
 }
+/// Similar to `Vector2<f32>` with additional heading(or it's derivatives).
+/// Usually represents: position, velocity, acceleration, offset.
+/// Can be converted into `Vector2<f32>`, `Point2<f32>`, `Isometry2<f32>` (uses heading) with `nalgebra` feature.
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Pose {
     pub x: f32,
     pub y: f32,
+    /// Heading, in radians
     pub h: f32,
 }
 
@@ -317,6 +352,8 @@ impl From<Pose> for Isometry2<f32> {
     }
 }
 
+/// Hardware, Firmware versions struct.
+/// Supports `defmt` with `defmt` feature
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Versions {
@@ -349,6 +386,9 @@ impl Default for SignalProcessConfig {
     }
 }
 
+/// bitfield struct of Hardware/Firmware version.
+/// Has minor, major 4bit fields.
+/// Supports `defmt` with `defmt` feature
 #[bitfield(u8)]
 #[derive(PartialEq)]
 pub struct Version {

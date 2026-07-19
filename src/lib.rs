@@ -1,13 +1,18 @@
 #![cfg_attr(not(test), no_std)]
 #![deny(unsafe_code)]
 
+//! SparkFun OTOS [embedded_hal_async] driver
+
 pub mod driver;
 pub mod error;
 pub mod registers;
 
 pub(crate) type Result<T> = core::result::Result<T, crate::error::Error>;
 
-pub use otos::SparkfunOTOS;
+
+pub use otos::Pose;
+pub use otos::SparkFunOTOS;
+pub use otos::Versions;
 
 use crate::driver::otos;
 
