@@ -3,6 +3,9 @@ name = "sparkfun-otos"
 version = "0.1.0"
 edition = "2024"
 license = "LGPL-3.0-only AND MIT"
+authors = ["Soupborsh"]
+description = "SparkFun OTOS embedded-hal-async driver"
+repository = "https://github.com/XLNC-APEX/sparkfun-otos.git"
 
 [dependencies]
 arrayref = "0.3.9"
