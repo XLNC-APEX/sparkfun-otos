@@ -2,13 +2,17 @@
 #![deny(unsafe_code)]
 
 //! SparkFun OTOS [embedded_hal_async] driver
+//!
+//! Example
+//! ```
+#![doc = doctest_file::include_doctest!("examples/basic_use.rs")]
+//! ```
 
 pub mod driver;
 pub mod error;
 pub mod registers;
 
 pub(crate) type Result<T> = core::result::Result<T, crate::error::Error>;
-
 
 pub use otos::Pose;
 pub use otos::SparkFunOTOS;

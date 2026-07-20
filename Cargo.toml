@@ -11,6 +11,7 @@ repository = "https://github.com/XLNC-APEX/sparkfun-otos.git"
 arrayref = "0.3.9"
 bitfield-struct = "0.13.0"
 defmt = { version = "1.1.1", optional = true }
+doctest-file = "1.1.1"
 embedded-hal-async = "1.0.0"
 nalgebra = { version = "0.35.0", optional = true, default-features = false, features = [
     "libm",
@@ -19,3 +20,8 @@ nalgebra = { version = "0.35.0", optional = true, default-features = false, feat
 [features]
 defmt = ["dep:defmt"]
 nalgebra = ["dep:nalgebra"]
+
+[dev-dependencies]
+doctest-file = "1.1.1"
+embedded-hal-mock = { version = "0.11.1", default-features = false, features = ["eh1", "embedded-hal-async"] }
+tokio = { version = "1.53.0", features = ["rt-multi-thread", "macros"] }
