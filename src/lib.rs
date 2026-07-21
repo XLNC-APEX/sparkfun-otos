@@ -7,6 +7,13 @@
 //! ```
 #![doc = doctest_file::include_doctest!("examples/basic_use.rs")]
 //! ```
+//! See [SparkFunOTOS] methods for more functionality
+//!
+//! And [Pose] as main output type
+//!
+//! Features
+//! - defmt - implements `defmt::Format` from [defmt](https://crates.io/crates/defmt) crate for types.
+//! - nalgebra - convert [Pose] into `Vector2<f32>`, `Point2<f32>`, `Isometry2<f32>` types from [nalgebra](https://crates.io/crates/nalgebra) crate
 
 pub mod driver;
 pub mod error;
