@@ -186,7 +186,7 @@ where
     }
     /// Set OTOS offset. Offset of OTOS relative to robot center(Any point can be as center)
     pub async fn set_offset(&mut self, pose: &Pose) -> Result<()> {
-        self.write_pose(pose, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
+        self.write_pose(pose, Register::OFFSETS, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
     /// Checks if product id equals [PRODUCT_ID]
@@ -214,7 +214,11 @@ where
 
     /// Resets position to origin(0,0).
     pub async fn reset_tracking(&mut self) -> Result<()> {
-        self.write_reg(Register::RESET, 0x01).await
+        self.write_reg(Register::RESET, 0x01).await?;
+        // Discard leftover old pos. After it pos is 0. Tested on hw.
+        // TODO: do other methods require discarding too?
+        self.get_pos().await?;
+        Ok(())
     }
 
     /// Gets [SignalProcessConfig] from OTOS.
@@ -297,6 +301,7 @@ where
             .map_err(|_| Error::I2cError)
     }
 
+    // TODO: Does it need after this read leftover pos and discard it?
     async fn write_reg(&mut self, reg: u8, value: u8) -> Result<()> {
         self.i2c
             .write(DEFAULT_ADDR, &[reg, value])
