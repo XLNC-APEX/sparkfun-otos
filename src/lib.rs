@@ -2,13 +2,24 @@
 #![deny(unsafe_code)]
 
 //! SparkFun OTOS [embedded_hal_async] driver
+//!
+//! Example
+//! ```
+#![doc = doctest_file::include_doctest!("examples/basic_use.rs")]
+//! ```
+//! See [SparkFunOTOS] methods for more functionality
+//!
+//! And [Pose] as main output type
+//!
+//! Features
+//! - defmt - implements `defmt::Format` from [defmt](https://crates.io/crates/defmt) crate for types.
+//! - nalgebra - convert [Pose] into `Vector2<f32>`, `Point2<f32>`, `Isometry2<f32>` types from [nalgebra](https://crates.io/crates/nalgebra) crate
 
 pub mod driver;
 pub mod error;
 pub mod registers;
 
 pub(crate) type Result<T> = core::result::Result<T, crate::error::Error>;
-
 
 pub use otos::Pose;
 pub use otos::SparkFunOTOS;
