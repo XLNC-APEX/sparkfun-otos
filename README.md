@@ -17,23 +17,31 @@ SparkFun OTOS [embedded_hal_async](https://docs.rs/embedded_hal_async/latest/emb
 
 Example
 ```rust
+use core::f32::consts::FRAC_PI_2;
 use sparkfun_otos::{Pose, SparkFunOTOS};
 
 async fn main() {
     // Params: i2c bus, async Input pin(impls async Wait trait) connected to IO9 on OTOS.
     let mut otos = SparkFunOTOS::new(i2c, irq_pin);
+    // Offset is used to compensate for offset placement
+    // of OTOS relative to desired center pose of tracking(ex. robot center).
+    // For offset the coordinate system is:
+    // +X is Right, +Y is Forward. (RF, Math like)
+    // For example if from the desired pose perspective the otos is placed:
+    // 54.5 mm forward (Y), rotated 90deg ccw (== PI/2)
+    // Correcting offset is:
+    let offset = Pose::new_mm(0.0, 54.5, FRAC_PI_2);
+    otos.set_offset(&offset).await.unwrap();
+    // Output coordinate system can be changed, see [Pose::set_offset]
+
+    // Resets the velocity, acceleration. OTOS should not be moving!
     otos.calibrate_imu(255).await.unwrap();
+    // Resets pos to 0
     otos.reset_tracking().await.unwrap();
     let pos = otos.get_pos().await.unwrap();
 
-    assert_eq!(
-        pos,
-        Pose {
-            x: 0.0,
-            y: 0.0,
-            h: 0.0
-        }
-    );
+    // After reset, position should be 0 or very close to 0
+    assert_eq!(pos, Pose::new(0.0, 0.0, 0.0));
 }
 ```
 See [SparkFunOTOS](https://docs.rs/sparkfun-otos/latest/sparkfun_otos/driver/otos/struct.SparkFunOTOS.html) methods for more functionality
