@@ -1,3 +1,5 @@
+use core::f32::consts::{FRAC_PI_2, PI, TAU};
+
 use arrayref::array_ref;
 use bitfield_struct::bitfield;
 use embedded_hal_async::{
@@ -26,8 +28,7 @@ where
     IrqPin: Wait,
 {
     /// params: i2c bus, IO9 Input async pin(should not be pulled)
-    ///
-    pub fn new(i2c: I2C, irq_pin: IrqPin) -> Self {
+    pub const fn new(i2c: I2C, irq_pin: IrqPin) -> Self {
         Self { i2c, irq_pin }
     }
 
@@ -179,15 +180,45 @@ where
         ];
         self.write_regs(reg, &tx).await
     }
-    /// Get OTOS offset. Offset of OTOS relative to robot center(Any point can be as center)
+    /// Get currently set OTOS offset. Offset of OTOS is from perspective of desired tracking pose(ex. robot center)
+    /// RF coordinate system(+X is Right,+Y is Forward) by default.
     pub async fn get_offsets(&mut self) -> Result<Pose> {
         self.read_pose(Register::OFFSETS, K_I16_TO_METER, K_I16_TO_RAD)
             .await
     }
-    /// Set OTOS offset. Offset of OTOS relative to robot center(Any point can be as center)
+    /// Set OTOS offset. Offset of OTOS is from perspective of desired tracking pose(ex. robot center)
+    /// RF coordinate system(+X is Right,+Y is Forward) by default.
+    ///
+    /// Output coord. system can be changed, ex. FL, see [Self::set_offset_fl] and others
+    /// Coord. systems can be only rotations of RF. supported currently: (RF, FL, LD, DR)
+    /// The conversion is happening on the OTOS. We abuse offset properties.
     pub async fn set_offset(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::OFFSETS, K_METER_TO_I16, K_RAD_TO_I16)
             .await
+    }
+    /// Same input as [Self::set_offset] however changes output coordinate system to FL(X forward, Y left)
+    pub async fn set_offset_fl(&mut self, pose: &Pose) -> Result<()> {
+        // FL is 90deg ccw rotation from RF. To change CS rotate offset to inverse angle -90deg.
+        let mut rotated_pose = Pose::new(pose.y, -pose.x, pose.h - FRAC_PI_2);
+        // Make sure heading is valid, in range [-pi, pi)
+        rotated_pose.wrap_heading();
+        self.set_offset(&rotated_pose).await
+    }
+    /// Same input as [Self::set_offset] however changes output coordinate system to LD(X left, Y down)
+    pub async fn set_offset_ld(&mut self, pose: &Pose) -> Result<()> {
+        // LD is 180deg ccw rotation from RF. To change CS rotate offset to inverse angle -180deg.
+        let mut rotated_pose = Pose::new(-pose.x, -pose.y, pose.h - PI);
+        // Make sure heading is valid, in range [-pi, pi)
+        rotated_pose.wrap_heading();
+        self.set_offset(&rotated_pose).await
+    }
+    /// Same input as [Self::set_offset] however changes output coordinate system to DR(X down, Y right)
+    pub async fn set_offset_dr(&mut self, pose: &Pose) -> Result<()> {
+        // FL is -90deg ccw rotation from RF. To change CS rotate offset to inverse angle 90deg.
+        let mut rotated_pose = Pose::new(-pose.y, pose.x, pose.h + FRAC_PI_2);
+        // Make sure heading is valid, in range [-pi, pi)
+        rotated_pose.wrap_heading();
+        self.set_offset(&rotated_pose).await
     }
     /// Checks if product id equals [PRODUCT_ID]
     async fn check_product_id(&mut self) -> Result<()> {
@@ -322,17 +353,39 @@ pub struct Pose {
 }
 
 impl Pose {
-    fn parse(rx: &[u8; 6], k_xy: f32, k_h: f32) -> Self {
+    /// Param units: x: meters, y: meters, h: radians
+    pub const fn new(x: f32, y: f32, h: f32) -> Self {
+        Self { x, y, h }
+    }
+    /// Same as [Self::new] but x, y are in millimeters.
+    pub const fn new_mm(x: f32, y: f32, h: f32) -> Self {
+        Self {
+            x: x / 1000.0,
+            y: y / 1000.0,
+            h,
+        }
+    }
+    const fn parse(rx: &[u8; 6], k_xy: f32, k_h: f32) -> Self {
         let x = i16::from_le_bytes([rx[0], rx[1]]) as f32 * k_xy;
         let y = i16::from_le_bytes([rx[2], rx[3]]) as f32 * k_xy;
         let h = i16::from_le_bytes([rx[4], rx[5]]) as f32 * k_h;
         Self { x, y, h }
     }
-    fn encode(&self, k_xy: f32, k_h: f32) -> [u8; 6] {
+    const fn encode(&self, k_xy: f32, k_h: f32) -> [u8; 6] {
         let x = ((self.x * k_xy) as i16).to_le_bytes();
         let y = ((self.y * k_xy) as i16).to_le_bytes();
         let h = ((self.h * k_h) as i16).to_le_bytes();
         [x[0], x[1], y[0], y[1], h[0], h[1]]
+    }
+    /// Wraps heading to [-pi,pi)
+    /// Sometimes needed after heading changing operations.
+    pub const fn wrap_heading(&mut self) {
+        if self.h >= PI {
+            self.h -= TAU;
+        }
+        if self.h < -PI {
+            self.h += TAU;
+        }
     }
 }
 
@@ -344,6 +397,13 @@ impl From<Pose> for Point2<f32> {
 }
 
 #[cfg(feature = "nalgebra")]
+impl From<Point2<f32>> for Pose {
+    fn from(v: Point2<f32>) -> Self {
+        Pose::new(v.x, v.y, 0.0)
+    }
+}
+
+#[cfg(feature = "nalgebra")]
 impl From<Pose> for Vector2<f32> {
     fn from(pose: Pose) -> Self {
         Vector2::new(pose.x, pose.y)
@@ -351,9 +411,23 @@ impl From<Pose> for Vector2<f32> {
 }
 
 #[cfg(feature = "nalgebra")]
+impl From<Vector2<f32>> for Pose {
+    fn from(v: Vector2<f32>) -> Self {
+        Pose::new(v.x, v.y, 0.0)
+    }
+}
+
+#[cfg(feature = "nalgebra")]
 impl From<Pose> for Isometry2<f32> {
     fn from(pose: Pose) -> Self {
         Isometry2::new(Vector2::new(pose.x, pose.y), pose.h)
+    }
+}
+
+#[cfg(feature = "nalgebra")]
+impl From<Isometry2<f32>> for Pose {
+    fn from(v: Isometry2<f32>) -> Self {
+        Pose::new(v.translation.x, v.translation.y, v.rotation.angle())
     }
 }
 
