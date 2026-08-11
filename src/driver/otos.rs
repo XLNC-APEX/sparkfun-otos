@@ -558,7 +558,7 @@ pub struct Versions {
     pub fw: Version,
 }
 
-/// Signal process config register bit fields
+/// Signal process config register bitfield
 #[cfg_attr(feature = "defmt", bitfield(u8, defmt = true, default = false))]
 #[cfg_attr(not(feature = "defmt"), bitfield(u8, default = false))]
 pub struct SignalProcessConfig {
