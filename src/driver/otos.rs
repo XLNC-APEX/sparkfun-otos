@@ -432,7 +432,7 @@ impl From<Isometry2<f32>> for Pose {
     }
 }
 
-use core::ops::{Add, Div, Mul, Sub};
+use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
 
 #[cfg(feature = "nalgebra")]
 impl Add<Vector2<f32>> for Pose {
@@ -443,6 +443,14 @@ impl Add<Vector2<f32>> for Pose {
             y: self.y + rhs.y,
             h: self.h,
         }
+    }
+}
+
+#[cfg(feature = "nalgebra")]
+impl AddAssign<Vector2<f32>> for Pose {
+    fn add_assign(&mut self, rhs: Vector2<f32>) {
+        self.x += rhs.x;
+        self.y += rhs.y;
     }
 }
 
@@ -458,7 +466,15 @@ impl Sub<Vector2<f32>> for Pose {
     }
 }
 
-impl Add<Self> for Pose {
+#[cfg(feature = "nalgebra")]
+impl SubAssign<Vector2<f32>> for Pose {
+    fn sub_assign(&mut self, rhs: Vector2<f32>) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+    }
+}
+
+impl Add for Pose {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         Self {
@@ -469,7 +485,15 @@ impl Add<Self> for Pose {
     }
 }
 
-impl Sub<Self> for Pose {
+impl AddAssign for Pose {
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+        self.h += rhs.h;
+    }
+}
+
+impl Sub for Pose {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
         Self {
@@ -477,6 +501,14 @@ impl Sub<Self> for Pose {
             y: self.y - rhs.y,
             h: self.h - rhs.h,
         }
+    }
+}
+
+impl SubAssign for Pose {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.x -= rhs.x;
+        self.y -= rhs.y;
+        self.h -= rhs.h;
     }
 }
 
@@ -491,6 +523,14 @@ impl Mul<f32> for Pose {
     }
 }
 
+impl MulAssign<f32> for Pose {
+    fn mul_assign(&mut self, rhs: f32) {
+        self.x *= rhs;
+        self.y *= rhs;
+        self.h;
+    }
+}
+
 impl Div<f32> for Pose {
     type Output = Self;
     fn div(self, rhs: f32) -> Self {
@@ -502,6 +542,13 @@ impl Div<f32> for Pose {
     }
 }
 
+impl DivAssign<f32> for Pose {
+    fn div_assign(&mut self, rhs: f32) {
+        self.x /= rhs;
+        self.y /= rhs;
+        self.h;
+    }
+}
 /// Hardware, Firmware versions struct.
 /// Supports `defmt` with `defmt` feature
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
