@@ -76,27 +76,27 @@ where
     pub async fn get_pos_vel_acc(&mut self) -> Result<[Pose; 3]> {
         self.read_poses(Register::POS).await
     }
-    // SD versions
-    /// Get position. Standard deviation version.
+    // Standard deviation
+    /// Get standard deviation of position.
     pub async fn get_pos_sd(&mut self) -> Result<Pose> {
         self.read_pose(Register::POS_SD, K_I16_TO_METER, K_I16_TO_RAD)
             .await
     }
-    /// Get velocity. Standard deviation version.
+    /// Get standard deviation of velocity.
     pub async fn get_vel_sd(&mut self) -> Result<Pose> {
         self.read_pose(Register::VEL_SD, K_I16_TO_MPS, K_I16_TO_RPS)
             .await
     }
-    /// Get acceleration. Standard deviation version.
+    /// Get standard deviation of acceleration.
     pub async fn get_acc_sd(&mut self) -> Result<Pose> {
         self.read_pose(Register::ACCEL_SD, K_I16_TO_MPSS, K_I16_TO_RPSS)
             .await
     }
-    /// Get position, velocity at once. Standard deviation version.
+    /// Get standard deviation of position, velocity at once.
     pub async fn get_pos_vel_sd(&mut self) -> Result<[Pose; 2]> {
         self.read_2_poses(Register::POS_SD).await
     }
-    /// Get position, velocity, acceleration at once. Standard deviation version.
+    /// Get standard deviation of position, velocity, acceleration at once.
     pub async fn get_pos_vel_acc_sd(&mut self) -> Result<[Pose; 3]> {
         self.read_poses(Register::POS_SD).await
     }
@@ -145,22 +145,23 @@ where
         self.write_poses(poses, Register::POS, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
-    /// Set position. Standard deviation version.
+    // Standard deviation.
+    /// Set standard deviation of position.
     pub async fn set_pos_sd(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::POS_SD, K_METER_TO_I16, K_RAD_TO_I16)
             .await
     }
-    /// Set velocity. Standard deviation version.
+    /// Set standard deviation of velocity.
     pub async fn set_vel_sd(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::VEL_SD, K_MPS_TO_I16, K_RPS_TO_I16)
             .await
     }
-    /// Set acceleration. Standard deviation version.
+    /// Set standard deviation of acceleration.
     pub async fn set_acc_sd(&mut self, pose: &Pose) -> Result<()> {
         self.write_pose(pose, Register::ACCEL_SD, K_MPSS_TO_I16, K_RPSS_TO_I16)
             .await
     }
-    /// Set position, velocity, acceleration at once. Standard deviation version.
+    /// Set standard deviation of position, velocity, acceleration at once.
     pub async fn set_pos_vel_acc_sd(&mut self, poses: &[Pose; 3]) -> Result<()> {
         self.write_poses(poses, Register::POS_SD, K_METER_TO_I16, K_RAD_TO_I16)
             .await
@@ -428,6 +429,76 @@ impl From<Pose> for Isometry2<f32> {
 impl From<Isometry2<f32>> for Pose {
     fn from(v: Isometry2<f32>) -> Self {
         Pose::new(v.translation.x, v.translation.y, v.rotation.angle())
+    }
+}
+
+use core::ops::{Add, Div, Mul, Sub};
+
+#[cfg(feature = "nalgebra")]
+impl Add<Vector2<f32>> for Pose {
+    type Output = Self;
+    fn add(self, rhs: Vector2<f32>) -> Self {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            h: self.h,
+        }
+    }
+}
+
+#[cfg(feature = "nalgebra")]
+impl Sub<Vector2<f32>> for Pose {
+    type Output = Self;
+    fn sub(self, rhs: Vector2<f32>) -> Self {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            h: self.h,
+        }
+    }
+}
+
+impl Add<Self> for Pose {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            h: self.h + rhs.h,
+        }
+    }
+}
+
+impl Sub<Self> for Pose {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            h: self.h - rhs.h,
+        }
+    }
+}
+
+impl Mul<f32> for Pose {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self {
+        Self {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            h: self.h,
+        }
+    }
+}
+
+impl Div<f32> for Pose {
+    type Output = Self;
+    fn div(self, rhs: f32) -> Self {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
+            h: self.h,
+        }
     }
 }
 
