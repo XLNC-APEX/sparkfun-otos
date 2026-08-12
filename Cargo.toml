@@ -1,6 +1,6 @@
 [package]
 name = "sparkfun-otos"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 license = "LGPL-3.0-only AND MIT"
 authors = ["Soupborsh"]
@@ -24,4 +24,4 @@ nalgebra = ["dep:nalgebra"]
 [dev-dependencies]
 doctest-file = "1.1.1"
 embedded-hal-mock = { version = "0.11.1", default-features = false, features = ["eh1", "embedded-hal-async"] }
-tokio = { version = "1.53.0", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "macros"] }
